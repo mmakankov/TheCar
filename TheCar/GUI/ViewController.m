@@ -30,8 +30,22 @@ const CGFloat minRadius = 0.1;
     self.tapGesture = tap;
 }
 
-- (void)animateWithDestination:(CGPoint)destination {
-    self.isAnimating = YES;
+- (BOOL)defineRotationDirectionWithCurrentAngle:(CGFloat)currentAngle needAngle:(CGFloat)needAngle {
+    CGFloat provisionalAngle = needAngle - currentAngle;
+    CGFloat turnAngle = provisionalAngle;
+    
+    if (fabs(provisionalAngle) <= M_PI) {
+        turnAngle = provisionalAngle;
+    } else if (provisionalAngle > M_PI) {
+        turnAngle = provisionalAngle - 2 * M_PI;
+    } else if (provisionalAngle < -M_PI) {
+        turnAngle = provisionalAngle + 2 * M_PI;
+    }
+    
+    return turnAngle > 0;
+}
+
+- (UIBezierPath *)pathWithDestination:(CGPoint)destination {
     CALayer *presentationLayer = [self.carView.layer presentationLayer];
     CGPoint currentPosition = presentationLayer.position;
     CGFloat needAngle = atan2f(destination.y - currentPosition.y, destination.x - currentPosition.x);
@@ -43,21 +57,9 @@ const CGFloat minRadius = 0.1;
         radius = MIN(halfDistance, maxRadius);
     }
     
-    //Calculate direction of rotation
-    CGFloat provisionalAngle = needAngle - currentAngle;
-    CGFloat turnAngle = provisionalAngle;
+    BOOL isClockwise = [self defineRotationDirectionWithCurrentAngle:currentAngle needAngle:needAngle];
     
-    if (fabs(provisionalAngle) <= M_PI) {
-        turnAngle = provisionalAngle;
-    } else if (provisionalAngle > M_PI) {
-        turnAngle = provisionalAngle - 2 * M_PI;
-    } else if (provisionalAngle < -M_PI) {
-        turnAngle = provisionalAngle + 2 * M_PI;
-    }
-    BOOL isClockwise = turnAngle > 0;
-    //=====
-    
-    CGFloat circleAngle = currentAngle + (turnAngle > 0 ? M_PI_2 : - M_PI_2);
+    CGFloat circleAngle = currentAngle + (isClockwise ? M_PI_2 : - M_PI_2);
     CGPoint circleCenter = CGPointMake(currentPosition.x + radius * cosf(circleAngle), currentPosition.y + radius * sinf(circleAngle));
     CGFloat endAngle = atan2f(destination.y - circleCenter.y, destination.x - circleCenter.x);
     CGFloat dist = hypotf(destination.x - circleCenter.x, destination.y - circleCenter.y);
@@ -69,6 +71,11 @@ const CGFloat minRadius = 0.1;
                                                       endAngle:endAngle + (isClockwise ? - angleToMinus : angleToMinus)
                                                      clockwise:isClockwise];
     [path addLineToPoint:destination];
+    
+    return path;
+}
+- (void)animateWithPath:(UIBezierPath *)path {
+    self.isAnimating = YES;
     
     CAKeyframeAnimation *animation = [CAKeyframeAnimation animationWithKeyPath:@"position"];
     animation.duration = timeInterval;
@@ -92,7 +99,8 @@ const CGFloat minRadius = 0.1;
     if (self.ignoreTouchesSwitch.isOn) {
         self.tapGesture.enabled = NO;
     }
-    [self animateWithDestination:[recognizer locationInView:recognizer.view]];
+    UIBezierPath *path = [self pathWithDestination:[recognizer locationInView:recognizer.view]];
+    [self animateWithPath:path];
 }
 
 #pragma mark - CAAnimationDelegate
