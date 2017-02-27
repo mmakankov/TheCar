@@ -8,8 +8,6 @@
 
 #import <UIKit/UIKit.h>
 
-@class CarView;
-
 @interface ViewController : UIViewController
 
 @property (weak, nonatomic) IBOutlet UIImageView *carView;
